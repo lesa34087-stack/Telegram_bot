@@ -9,17 +9,6 @@ from urllib.parse import quote_plus
 import whois
 import json
 import socket
-import socks
-
-# ===== НАСТРОЙКА ПРОКСИ (ОБХОД БЛОКИРОВКИ) =====
-PROXY_HOST = "185.217.123.58"  # SOCKS5 прокси (если не работает — замени)
-PROXY_PORT = 1080
-
-# Применяем прокси ко всем сетевым подключениям
-socks.set_default_proxy(socks.SOCKS5, PROXY_HOST, PROXY_PORT)
-socket.socket = socks.socksocket
-
-print("✅ Прокси активен!")
 
 # ===== ТОКЕН БОТА =====
 BOT_TOKEN = os.getenv("BOT_TOKEN")
@@ -242,11 +231,10 @@ class Searcher:
     def get_car_info(self, plate):
         return f"🚗 *Автономер:*\nНомер {plate} проверен. Штрафы и история не найдены."
 
-    # ----- 18. TELEGRAM ПО НОМЕРУ (С ПРОКСИ) -----
+    # ----- 18. TELEGRAM ПО НОМЕРУ -----
     async def get_telegram_by_phone(self, phone):
         try:
             from telethon import TelegramClient
-            # Прокси уже настроен глобально, поэтому клиент использует его автоматически
             client = TelegramClient('session', self.tg_api_id, self.tg_api_hash)
             await client.start()
             try:
@@ -259,10 +247,10 @@ class Searcher:
                 return "❌ *Аккаунт не найден*"
             finally:
                 await client.disconnect()
-        except Exception as e:
-            return f"❌ *Ошибка: {str(e)[:100]}*"
+        except:
+            return "❌ *Ошибка подключения к Telegram API*"
 
-    # ----- 19. TELEGRAM ПО USERNAME (С ПРОКСИ) -----
+    # ----- 19. TELEGRAM ПО USERNAME -----
     async def get_telegram_by_username(self, username):
         try:
             from telethon import TelegramClient
@@ -278,8 +266,8 @@ class Searcher:
                 return "❌ *Аккаунт не найден*"
             finally:
                 await client.disconnect()
-        except Exception as e:
-            return f"❌ *Ошибка: {str(e)[:100]}*"
+        except:
+            return "❌ *Ошибка подключения к Telegram API*"
 
     # ----- ГЛАВНЫЙ МЕТОД (АВТООПРЕДЕЛЕНИЕ) -----
     async def search(self, query):
@@ -429,7 +417,7 @@ async def search(message: types.Message):
 
 # ===== ЗАПУСК =====
 async def main():
-    print("🚀 OSINT-бот v8.0 с прокси запущен!")
+    print("🚀 OSINT-бот v8.0 «Автоопределение» запущен!")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
