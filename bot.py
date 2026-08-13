@@ -6,6 +6,8 @@ from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from urllib.parse import quote_plus
+import whois
+import json
 
 # ===== ТОКЕН БОТА =====
 BOT_TOKEN = os.getenv("BOT_TOKEN")
@@ -18,7 +20,7 @@ HIBP_KEY = ""
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher(bot=bot)
 
-# ===== КЛАСС ДЛЯ ПОИСКА =====
+# ===== КЛАСС С ВСЕМИ ФУНКЦИЯМИ =====
 class Searcher:
     def __init__(self):
         self.session = requests.Session()
@@ -26,6 +28,7 @@ class Searcher:
         self.vk_token = VK_TOKEN
         self.hibp_key = HIBP_KEY
 
+    # ----- 1. Номер телефона -----
     def get_operator(self, phone):
         url = f"http://apilayer.net/api/validate?access_key={self.numverify_key}&number={phone}&country_code=RU"
         try:
@@ -39,6 +42,7 @@ class Searcher:
         except:
             return "❌ *Ошибка запроса*"
 
+    # ----- 2. Email (утечки) -----
     def get_breaches(self, email):
         url = f"https://haveibeenpwned.com/api/v3/breachedaccount/{quote_plus(email)}"
         headers = {"hibp-api-key": self.hibp_key} if self.hibp_key else {}
@@ -48,7 +52,7 @@ class Searcher:
                 data = r.json()
                 if data:
                     text = "🔓 *Найден в утечках:*\n"
-                    for b in data[:5]:
+                    for b in data[:10]:
                         text += f"• {b.get('Name')} ({b.get('BreachDate', '')})\n"
                     return text
                 return "✅ *Утечек не найдено*"
@@ -59,8 +63,9 @@ class Searcher:
         except:
             return "❌ *Ошибка проверки утечек*"
 
+    # ----- 3. VK профиль -----
     def get_vk(self, username):
-        url = f"https://api.vk.com/method/users.get?user_ids={username}&fields=city,bdate&access_token={self.vk_token}&v=5.131"
+        url = f"https://api.vk.com/method/users.get?user_ids={username}&fields=city,bdate,education,career&access_token={self.vk_token}&v=5.131"
         try:
             r = self.session.get(url, timeout=10)
             data = r.json()
@@ -71,12 +76,15 @@ class Searcher:
                 if user.get('city'):
                     text += f"• Город: {user['city'].get('title', 'Неизвестно')}\n"
                 if user.get('bdate'):
-                    text += f"• Дата рождения: {user['bdate']}"
+                    text += f"• Дата рождения: {user['bdate']}\n"
+                if user.get('education'):
+                    text += f"• Образование: {user['education'].get('university_name', 'Неизвестно')}\n"
                 return text
             return "❌ *VK профиль не найден*"
         except:
             return "❌ *Ошибка VK API*"
 
+    # ----- 4. IP геолокация -----
     def get_ip_info(self, ip):
         url = f"http://ip-api.com/json/{ip}"
         try:
@@ -92,6 +100,7 @@ class Searcher:
         except:
             return "❌ *Ошибка запроса*"
 
+    # ----- 5. BIN -----
     def get_bin_info(self, bin):
         url = f"https://lookup.binlist.net/{bin}"
         try:
@@ -106,6 +115,7 @@ class Searcher:
         except:
             return "❌ *Ошибка запроса*"
 
+    # ----- 6. Bitcoin -----
     def get_crypto_balance(self, address):
         url = f"https://blockchain.info/q/addressbalance/{address}"
         try:
@@ -117,6 +127,7 @@ class Searcher:
         except:
             return "❌ *Ошибка запроса*"
 
+    # ----- 7. Поиск по ФИО -----
     def get_person_by_name(self, name):
         url = f"https://api.duckduckgo.com/?q={name}&format=json"
         try:
@@ -128,6 +139,54 @@ class Searcher:
         except:
             return "❌ *Ошибка запроса*"
 
+    # ----- 8. WHOIS домена -----
+    def get_whois(self, domain):
+        try:
+            w = whois.whois(domain)
+            return (f"🌐 *Домен:* {domain}\n"
+                    f"📅 *Создан:* {w.creation_date}\n"
+                    f"⏳ *Истекает:* {w.expiration_date}\n"
+                    f"📧 *Регистратор:* {w.registrar}")
+        except:
+            return "❌ *Ошибка WHOIS*"
+
+    # ----- 9. Проверка номера карты (BIN) -----
+    def get_card_info(self, card):
+        bin = card[:6]
+        return self.get_bin_info(bin)
+
+    # ----- 10. Instagram -----
+    def get_instagram(self, username):
+        url = f"https://www.instagram.com/{username}/?__a=1"
+        try:
+            r = self.session.get(url, timeout=10)
+            if r.status_code == 200:
+                data = r.json()
+                user = data.get('graphql', {}).get('user', {})
+                return (f"📸 *Instagram:*\n"
+                        f"• Имя: {user.get('full_name', 'Неизвестно')}\n"
+                        f"• Подписчики: {user.get('edge_followed_by', {}).get('count', 0)}\n"
+                        f"• Подписки: {user.get('edge_follow', {}).get('count', 0)}")
+            return "❌ *Профиль не найден*"
+        except:
+            return "❌ *Ошибка запроса*"
+
+    # ----- 11. GitHub -----
+    def get_github(self, username):
+        url = f"https://api.github.com/users/{username}"
+        try:
+            r = self.session.get(url, timeout=10)
+            if r.status_code == 200:
+                data = r.json()
+                return (f"🐙 *GitHub:*\n"
+                        f"• Имя: {data.get('name', 'Неизвестно')}\n"
+                        f"• Репозитории: {data.get('public_repos', 0)}\n"
+                        f"• Подписчики: {data.get('followers', 0)}")
+            return "❌ *Профиль не найден*"
+        except:
+            return "❌ *Ошибка запроса*"
+
+    # ----- ГЛАВНЫЙ МЕТОД -----
     def search(self, query):
         query = query.strip()
 
@@ -138,11 +197,21 @@ class Searcher:
         elif re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$', query):
             return self.get_ip_info(query)
         elif query.startswith('@'):
-            return self.get_vk(query[1:])
+            username = query[1:]
+            if 'instagram' in query:
+                return self.get_instagram(username)
+            elif 'github' in query:
+                return self.get_github(username)
+            else:
+                return self.get_vk(username)
         elif re.match(r'^\d{6}$', query):
             return self.get_bin_info(query)
         elif re.match(r'^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$', query):
             return self.get_crypto_balance(query)
+        elif re.match(r'^[a-zA-Z0-9-]+\.[a-zA-Z]{2,}$', query):
+            return self.get_whois(query)
+        elif re.match(r'^\d{16}$', query):
+            return self.get_card_info(query)
         elif len(query.split()) >= 2 and not re.search(r'[+@.\d]', query):
             return self.get_person_by_name(query)
         else:
@@ -151,10 +220,14 @@ class Searcher:
                     "• Номер: `+79582806282`\n"
                     "• Email: `test@mail.ru`\n"
                     "• IP: `8.8.8.8`\n"
-                    "• @username\n"
+                    "• @username (VK)\n"
+                    "• @instagram_username\n"
+                    "• @github_username\n"
                     "• BIN: `431234`\n"
+                    "• Bitcoin: `1A1zP1e...`\n"
                     "• ФИО: `Иван Иванов`\n"
-                    "• Bitcoin: `1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa`")
+                    "• Домен: `example.com`\n"
+                    "• Карта: `4111111111111111`")
 
 searcher = Searcher()
 
@@ -167,6 +240,9 @@ def main_keyboard():
         [InlineKeyboardButton(text="👤 Найти VK", callback_data="example_vk")],
         [InlineKeyboardButton(text="💳 Проверить BIN", callback_data="example_bin")],
         [InlineKeyboardButton(text="💰 Bitcoin баланс", callback_data="example_btc")],
+        [InlineKeyboardButton(text="🌐 WHOIS домена", callback_data="example_whois")],
+        [InlineKeyboardButton(text="📸 Instagram", callback_data="example_ig")],
+        [InlineKeyboardButton(text="🐙 GitHub", callback_data="example_gh")],
         [InlineKeyboardButton(text="📖 Помощь", callback_data="help")]
     ])
     return kb
@@ -175,15 +251,17 @@ def main_keyboard():
 @dp.message(Command("start"))
 async def start(message: types.Message):
     await message.answer(
-        "🔍 *OSINT Бот v4.0*\n\n"
-        "Я ищу информацию по:\n"
-        "• номерам телефонов\n"
-        "• email-адресам\n"
-        "• IP-адресам\n"
-        "• username в VK\n"
+        "🔍 *OSINT Бот v5.0 «Всё в одном»*\n\n"
+        "Я ищу информацию по 11 типам запросов:\n"
+        "• номера телефонов\n"
+        "• email-адреса\n"
+        "• IP-адреса\n"
+        "• username (VK, Instagram, GitHub)\n"
         "• BIN карт\n"
-        "• Bitcoin адресам\n"
-        "• ФИО\n\n"
+        "• Bitcoin адреса\n"
+        "• ФИО\n"
+        "• WHOIS доменов\n"
+        "• номера карт\n\n"
         "_Нажми на кнопку ниже, чтобы выбрать запрос, или просто отправь данные._",
         reply_markup=main_keyboard(),
         parse_mode="Markdown"
@@ -200,7 +278,10 @@ async def handle_callback(callback: types.CallbackQuery):
         "example_vk": "👤 *Пример запроса:*\nОтправь username с @: `@durov`",
         "example_bin": "💳 *Пример запроса:*\nОтправь первые 6 цифр карты: `431234`",
         "example_btc": "💰 *Пример запроса:*\nОтправь Bitcoin адрес: `1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa`",
-        "help": "📖 *Помощь*\n\nЯ ищу информацию по 7 типам запросов.\nПросто отправь мне данные в правильном формате."
+        "example_whois": "🌐 *Пример запроса:*\nОтправь домен: `google.com`",
+        "example_ig": "📸 *Пример запроса:*\nОтправь @instagram_username",
+        "example_gh": "🐙 *Пример запроса:*\nОтправь @github_username",
+        "help": "📖 *Помощь*\n\nЯ ищу информацию по 11 типам запросов.\nПросто отправь мне данные в правильном формате."
     }
     
     if callback.data in examples:
@@ -217,7 +298,7 @@ async def search(message: types.Message):
 
 # ===== ЗАПУСК =====
 async def main():
-    print("🚀 OSINT-бот v4.0 (с оформлением) запущен!")
+    print("🚀 OSINT-бот v5.0 «Всё в одном» запущен!")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
