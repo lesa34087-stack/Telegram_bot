@@ -6,12 +6,13 @@ from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
 from urllib.parse import quote_plus
 
-# ===== ТОКЕН БОТА =====
-BOT_TOKEN = os.getenv("8813636224:AAGEzEk5Ev9rHU_kXGHYjOA-dfXcsF27SBg")
+# ===== ТОКЕН БОТА (берётся из переменных Render) =====
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 
 # ===== API-КЛЮЧИ (вставь свои) =====
-NUMVERIFY_KEY = "5a194a8b51f2a5982d053660b025cb96"   # замени на реальный
-VK_TOKEN = "53e1a8db53e1a8db53e1a8dbc550a35808553e153e1a8db399cd8cd699dc241d847dcea"      # замени на реальный
+NUMVERIFY_KEY = "5a194a8b51f2a5982d053660b025cb"   # твой ключ
+VK_TOKEN = "53e1a8db53e1a8dbc550a358085"           # твой токен
+HIBP_KEY = ""  # можно оставить пустым
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher(bot=bot)
@@ -69,10 +70,8 @@ searcher = Searcher()
 async def start(message: types.Message):
     await message.answer(
         "🔍 *OSINT Бот*\n\n"
-        "Я умею искать информацию по:\n"
-        "• номеру телефона: `+79582806282`\n"
-        "• username: `@durov`\n\n"
-        "_Просто отправьте данные для поиска._",
+        "Отправь номер или @username\n"
+        "Например: +79582806282 или @durov",
         parse_mode="Markdown"
     )
 
@@ -84,7 +83,7 @@ async def search(message: types.Message):
 
 # ===== ЗАПУСК =====
 async def main():
-    print("🚀 OSINT-бот запущен!")
+    print("🚀 Бот запущен!")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
